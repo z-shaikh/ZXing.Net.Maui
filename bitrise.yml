@@ -1,0 +1,66 @@
+---
+format_version: '11'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: other
+trigger_map:
+- push_branch: "*"
+  workflow: primary
+- pull_request_source_branch: "*"
+  workflow: primary
+workflows:
+  primary:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - set-java-version@1:
+        inputs:
+        - set_java_version: '8'
+    - android-sdk-update@1:
+        inputs:
+        - platform_tools: stable
+        - build_tools: 31.0.0
+        - sdk_version: '30,31'
+        - tools: 'on'
+    - set-java-version@1: {}
+    - certificate-and-profile-installer@1: {}
+    - script@1:
+        title: Do anything with Script step
+        inputs:
+        - content: |
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            # Install dotnet SDK's
+            # curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --version 5.0.402
+            curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --version 6.0.100-rc.2.21505.57
+
+            # Install android sdk bits required - perhaps there's a better bitrise step to do this?
+            #~/.dotnet/dotnet tool install androidsdk.tool --tool-path ~/dotnettools
+            #DOTNET_ROOT=~/.dotnet/ ~/dotnettools/android sdk install --package "platforms;android-31" --package "ndk-bundle" --package "build-tools;31.0.0"
+
+            # install maui workloads (which installs android, ios, maccatalyst workloads)
+            ~/.dotnet/dotnet workload install maui
+
+            # Build the sln
+            # ~/.dotnet/dotnet build ./ZXing.Net.MAUI.sln
+
+            # Android - Builds the .apk + .aab
+            ~/.dotnet/dotnet build ./BigIslandBarcode/BigIslandBarcode.csproj -f net6.0-android -c Release
+
+            # iOS- Builds the .apk + .aab
+            ~/.dotnet/dotnet build ./BigIslandBarcode/BigIslandBarcode.csproj -f net6.0-ios -c Release -p:BuildIpa=True
+
+            echo $BITRISE_DEPLOY_DIR
+
+            # Copy the artifacts to a location that Bitrise can use
+            mkdir -p ./artifacts
+            cp ./BigIslandBarcode/bin/Release/**/*.apk ./artifacts
+            cp ./BigIslandBarcode/bin/Release/**/*.aab ./artifacts
+            cp ./BigIslandBarcode/bin/Release/**/*.ipa ./artifacts
+    - deploy-to-bitrise-io@2:
+        inputs:
+        - deploy_path: "./artifacts"
