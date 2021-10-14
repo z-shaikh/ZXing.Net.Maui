@@ -11,7 +11,7 @@
 		<ApplicationTitle>BigIslandBarcode</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.companyname.BigIslandBarcode</ApplicationId>
+		<ApplicationId>codes.redth.bigislandbarcode</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationVersion>1</ApplicationVersion>
